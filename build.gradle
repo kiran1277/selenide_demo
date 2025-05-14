@@ -1,0 +1,89 @@
+plugins {
+    id 'java'
+    id 'idea' // IntelliJ IDEA plugin (optional, for IDE integration)
+}
+
+group = 'org.example'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+// Define versions for dependencies
+ext {
+    selenideVersion = '7.9.2' // Check for the latest Selenide version
+    cucumberVersion = '7.22.1' // Check for the latest Cucumber version
+    junitJupiterVersion = '5.10.2' // JUnit 5 (Jupiter)
+    junitPlatformVersion = '1.10.2' // JUnit Platform
+    slf4jVersion = '2.0.13' // SLF4J for logging
+    ownerVersion = '1.0.12' // For configuration management (optional)
+    masterthoughtVersion = '5.8.1' // For cucumber-reporting (used by the plugin)
+}
+dependencies {
+    // Selenide for UI automation
+    testImplementation "com.codeborne:selenide:${selenideVersion}"
+
+    // Cucumber for BDD
+    testImplementation "io.cucumber:cucumber-java:${cucumberVersion}"
+    testImplementation "io.cucumber:cucumber-junit-platform-engine:${cucumberVersion}"
+    // For running with JUnit Platform
+
+    // JUnit 5 (Jupiter) for test execution and assertions
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitJupiterVersion}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitJupiterVersion}"
+
+    // JUnit Platform Suite Engine (needed for Cucumber with JUnit 5)
+    testImplementation "org.junit.platform:junit-platform-suite:${junitPlatformVersion}"
+    testImplementation "org.junit.platform:junit-platform-console-standalone:1.10.0" // For running from console
+
+
+    // SLF4J for logging (Selenide uses SLF4J)
+    // You might need a specific binding, e.g., slf4j-simple or logback-classic
+    testImplementation "org.slf4j:slf4j-api:${slf4jVersion}"
+    testImplementation "org.slf4j:slf4j-simple:${slf4jVersion}" // Simple logger implementation
+
+    // OWNER API for configuration properties (optional, but recommended)
+    // Helps manage properties like base URL, browser, etc.
+    implementation "org.aeonbits.owner:owner:${ownerVersion}"
+    // Masterthought Cucumber Reporting (library, plugin uses this)
+    implementation "net.masterthought:cucumber-reporting:${masterthoughtVersion}"
+    // https://mvnrepository.com/artifact/io.qameta.allure/allure-selenide
+    implementation("io.qameta.allure:allure-selenide:2.29.1")
+}
+
+test {
+    useJUnitPlatform()
+}
+tasks.register('generateCucumberReport', JavaExec) {
+    group = "reporting"
+    description = "Generates Cucumber HTML report using net.masterthought.cucumber-reporting"
+
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.example.report.CucumberReportGenerator'
+
+    args = [
+            "${buildDir}/cucumber-reports/cucumber.json",   // input JSON
+            "${buildDir}/cucumber-html-report",             // output directory
+            "selenide_demo"                                     // optional project name
+    ]
+}
+
+
+// Task to run Cucumber tests
+tasks.register('cucumber', Test) {
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching "runner.CucumberTestRunner"
+    }
+    // Ensure tests run after compilation
+    dependsOn testClasses
+    // Show test results in the console
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+    // Ensure system properties are passed
+    systemProperties System.getProperties()
+
+    // Ensure Masterthought reports are generated after this task
+    finalizedBy generateCucumberReport
+}
